@@ -710,6 +710,7 @@ input {
 .dashboard-container {
     display: flex;
     height: calc(100vh - var(--navbar-height));
+    min-height: 0;
     overflow: hidden;
 }
 
@@ -825,10 +826,19 @@ input {
     overflow-y: auto;
     overflow-x: hidden;
     padding: 24px;
+    padding-bottom: 48px;
     display: flex;
     flex-direction: column;
     gap: 20px;
-    scroll-behavior: smooth;
+    position: relative;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Forecast Results: ensure it can be scrolled into view and is not clipped */
+.table-card,
+#forecast-results-section {
+    scroll-margin-top: 24px;
+    flex-shrink: 0;
 }
 
 /* ── Widgets Strip ── */
@@ -945,23 +955,18 @@ input {
     padding: 8px 16px;
     font-size: 0.85rem;
 }
-
 .chart-card {
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
     padding: 20px;
-    position: relative;
-    overflow: hidden;
-    transition: all var(--transition-base);
     display: flex;
     flex-direction: column;
+    overflow: hidden;
 }
 
 /* Only chart cards with canvas/map get fixed max-height; table card stays flexible */
-.chart-card:has(.chart-canvas-wrap) {
-    max-height: 500px;
-}
+
 
 .chart-card:hover {
     border-color: rgba(255, 255, 255, 0.1);
@@ -977,14 +982,12 @@ input {
 
 /* Fixed-height chart containers – prevent charts from expanding page */
 .chart-canvas-wrap {
-    height: 380px;
-    min-height: 280px;
-    max-height: 400px;
-    overflow: hidden;
+    height: 360px;
+    max-height: 360px;
+    min-height: 320px;
     position: relative;
+    overflow: hidden;
     flex-shrink: 0;
-    padding: 0;
-    margin-top: 0;
 }
 
 .chart-container.chart-canvas-wrap {
@@ -994,10 +997,8 @@ input {
 }
 
 .chart-canvas-wrap canvas {
-    display: block;
     width: 100% !important;
     height: 100% !important;
-    max-height: 100%;
 }
 
 .chart-card .chart-title,
@@ -1330,11 +1331,13 @@ input {
         flex-direction: column;
         height: auto;
         min-height: calc(100vh - var(--navbar-height));
+        overflow: visible;
     }
 
     .main-content {
         min-height: 0;
         flex: 1;
+        padding-bottom: 48px;
     }
 
     .sidebar {
@@ -1354,9 +1357,7 @@ input {
         grid-template-columns: 1fr 1fr;
     }
 
-    .chart-card:has(.chart-canvas-wrap) {
-        max-height: 460px;
-    }
+   
 
     .chart-canvas-wrap {
         height: 340px;
@@ -1640,9 +1641,7 @@ input {
     border-radius: var(--radius-md);
 }
 
-.main-content {
-    position: relative;
-}
+
 
 .loading-spinner {
     width: 44px;
