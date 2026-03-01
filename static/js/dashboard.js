@@ -593,82 +593,11 @@ function updateKPIs(predictedData) {
     document.getElementById('model-info').classList.remove('hidden');
 }
 
-/* ════════════════════════════════════════════════════════════════
-   SORTABLE PREDICTIONS TABLE
-   ════════════════════════════════════════════════════════════════ */
-function sortTable(colIdx) {
-    if (State.tableSortCol === colIdx) {
-        State.tableSortAsc = !State.tableSortAsc;
-    } else {
-        State.tableSortCol = colIdx;
-        State.tableSortAsc = true;
-    }
-    renderTable(State.tableData);
-}
-
-function renderTable(data) {
-    State.tableData = data;
-    const tbody = document.getElementById('pred-tbody');
-    const search = (document.getElementById('table-search').value || '').toLowerCase();
-    const label = document.getElementById('table-state-label');
-
-    let display = data;
-    if (search) display = data.filter(d => d.state_name.toLowerCase().includes(search));
-
-    // Sort
-    const col = State.tableSortCol;
-    const asc = State.tableSortAsc;
-    display = [...display].sort((a, b) => {
-        const va = col === 0 ? a.state_name : col === 1 ? a.year : a.predicted_crime_rate;
-        const vb = col === 0 ? b.state_name : col === 1 ? b.year : b.predicted_crime_rate;
-        return asc ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1);
-    });
-
-    label.textContent = `${display.length} records`;
-
-    const empty = document.getElementById('table-empty');
-    if (!display.length) {
-        empty.classList.remove('hidden');
-        tbody.innerHTML = '';
-        return;
-    }
-    empty.classList.add('hidden');
-
-    const badge = lvl => {
-        const cls = { High: 'badge-high', Medium: 'badge-medium', Low: 'badge-low' }[lvl] || 'badge-low';
-        return `<span class="badge ${cls}">${lvl}</span>`;
-    };
-
-    // Compute trend vs previous year per state
-    const prevMap = {};
-    data.forEach(r => {
-        const key = `${r.state_name}-${r.year - 1}`;
-        prevMap[`${r.state_name}-${r.year}`] = r.predicted_crime_rate;
-    });
-
-    tbody.innerHTML = display.map(r => {
-        const prev = prevMap[`${r.state_name}-${r.year - 1}`];
-        let trend = '–';
-        if (prev !== undefined) {
-            const diff = r.predicted_crime_rate - prev;
-            trend = diff > 0
-                ? `<span style="color:#ef4444;">▲ ${diff.toFixed(1)}</span>`
-                : `<span style="color:#10b981;">▼ ${Math.abs(diff).toFixed(1)}</span>`;
-        }
-        return `<tr>
-          <td>${r.state_name}</td>
-          <td>${r.year}</td>
-          <td>${r.predicted_crime_rate.toFixed(2)}</td>
-          <td>${badge(r.crime_level)}</td>
-          <td>${trend}</td>
-        </tr>`;
-    }).join('');
-}
-
-function updateTable(predictedData) {
-    renderTable(predictedData);
-    document.getElementById('table-search').addEventListener('input', () => renderTable(State.tableData));
-}
+/* Forecast Results table removed — these stubs prevent runtime errors
+   in any code paths that still call updateTable / renderTable.        */
+function sortTable() {}
+function renderTable(data) { State.tableData = data || []; }
+function updateTable(data) { renderTable(data); }
 
 /* ════════════════════════════════════════════════════════════════
    REFRESH ALL CHARTS
@@ -707,12 +636,10 @@ function refreshAllCharts() {
         buildRiskChart(high, med, low);
         updateKPIs(predictedData);
         updateMapLayer(latest);
-        updateTable(predictedData);
     } else {
         buildBarChart([], []);
         buildRiskChart(0, 0, 0);
         updateMapLayer([]);
-        updateTable([]);
     }
     buildFeatureChart(historicalData, sel.length === 1 ? sel[0] : null);
     buildGrowthChart(historicalData);
@@ -855,7 +782,6 @@ async function init() {
     initMap();
     setupMultiSelectUI();
     setupYearFilter();
-    setupScrollToForecastResults();
     await loadFeatureImportance();
 
     const states = await loadStates();

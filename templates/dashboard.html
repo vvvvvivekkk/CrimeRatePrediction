@@ -165,10 +165,7 @@
             </div>
 
             <!-- Scroll shortcuts -->
-            <div class="dashboard-actions">
-                <a href="#forecast-section" class="btn btn-outline scroll-to-forecast">↓ Scroll to Forecast</a>
-                <button type="button" class="btn btn-outline scroll-to-forecast-results" id="btn-scroll-to-results" aria-label="Scroll to Forecast Results table">↓ Forecast Results Table</button>
-            </div>
+            
 
             <!-- ── Row 1: Heatmap | Line chart ── -->
             <div class="charts-row two-col">
@@ -237,39 +234,6 @@
                     <div class="chart-container chart-canvas-wrap chart-container--compact">
                         <canvas id="featureChart"></canvas>
                     </div>
-                </div>
-            </div>
-
-            <!-- ── Predictions Table (Forecast Results) ── -->
-            <div class="chart-card table-card" id="forecast-results-section" data-scroll-target="forecast-results">
-                <div class="chart-title-row">
-                    <div class="chart-title"><span class="icon">📋</span> Forecast Results</div>
-                    <div style="display:flex;gap:8px;align-items:center;">
-                        <span id="table-state-label" class="text-sm"></span>
-                        <input type="text" id="table-search" placeholder="Search state…"
-                            style="padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-primary);font-size:12px;width:140px;">
-                    </div>
-                </div>
-                <div id="table-empty" class="empty-state hidden">No forecast data. Click "Generate Forecast" to begin.
-                </div>
-                <div class="table-wrapper">
-                    <table class="data-table" id="pred-table">
-                        <thead>
-                            <tr>
-                                <th onclick="sortTable(0)" class="sortable">State ↕</th>
-                                <th onclick="sortTable(1)" class="sortable">Year ↕</th>
-                                <th onclick="sortTable(2)" class="sortable">Predicted Rate ↕</th>
-                                <th>Risk Level</th>
-                                <th>Trend vs Prev</th>
-                            </tr>
-                        </thead>
-                        <tbody id="pred-tbody">
-                            <tr>
-                                <td colspan="5" style="text-align:center;color:var(--text-muted);padding:30px;">No
-                                    forecast data. Click "Generate Forecast" to begin.</td>
-                            </tr>
-                        </tbody>
-                    </table>
                 </div>
             </div>
 
