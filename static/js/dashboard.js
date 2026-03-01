@@ -245,8 +245,13 @@ function updateMapLayer(predictedData) {
 
     const tryFetch = async (urls) => {
         for (const url of urls) {
-            try { const r = await fetch(url); if (r.ok) return r.json(); }
-            catch (_) { }
+            try {
+                const r = await fetch(url);
+                if (r.ok) return await r.json();
+                console.error('[GeoJSON] Load failed:', url, 'status:', r.status, r.statusText);
+            } catch (err) {
+                console.error('[GeoJSON] Load failed:', url, err.message || err);
+            }
         }
         throw new Error('GeoJSON unavailable');
     };
@@ -291,7 +296,8 @@ function updateMapLayer(predictedData) {
                 }
             }).addTo(State.leafletMap);
         })
-        .catch(() => {
+        .catch((err) => {
+            console.error('[GeoJSON] All sources failed, using circle markers fallback.', err?.message || err);
             Object.entries(lookup).forEach(([name, entry]) => {
                 const coords = STATE_COORDS[name]; if (!coords) return;
                 L.circleMarker(coords, {
