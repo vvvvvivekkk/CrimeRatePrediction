@@ -62,7 +62,10 @@ html {
 
 /* Dashboard: prevent layout jump, smooth scroll */
 .dashboard-body {
-    overflow-x: hidden;
+    /* Do NOT set overflow-x: hidden here — it creates a new scroll
+       container that clips the Forecast Results section at the bottom.
+       Horizontal overflow is handled on individual elements instead. */
+    overflow-x: clip;
 }
 
 body {
@@ -705,13 +708,17 @@ input {
     background: var(--bg-primary);
     padding-top: var(--navbar-height);
     min-height: 100vh;
+    /* Page scrolls normally — do NOT restrict overflow here */
+    overflow: auto;
 }
 
 .dashboard-container {
     display: flex;
+    /* Height must NOT be fixed or it clips the forecast results table —
+       let the container grow as tall as its content */
     min-height: calc(100vh - var(--navbar-height));
     height: auto;
-    overflow: visible;
+    align-items: flex-start;
 }
 
 /* ── Sidebar ── */
@@ -720,6 +727,10 @@ input {
     background: var(--bg-secondary);
     border-right: 1px solid var(--border);
     padding: 24px 16px;
+    /* Sticky sidebar: stays in view as user scrolls through main content */
+    position: sticky;
+    top: var(--navbar-height);
+    height: calc(100vh - var(--navbar-height));
     overflow-y: auto;
     flex-shrink: 0;
     display: flex;
@@ -822,11 +833,14 @@ input {
 /* ── Main Content ── */
 .main-content {
     flex: 1;
-    min-height: 0;
-    overflow-y: visible;
-    overflow-x: hidden;
+    /* No overflow restrictions — let the page body scroll naturally
+       so the Forecast Results table at the bottom is always reachable */
+    overflow: visible;
+    min-width: 0;
     padding: 24px;
-    padding-bottom: 80px;
+    /* Extra bottom padding so the table is not hidden behind the
+       back-to-top button or toasts */
+    padding-bottom: 120px;
     display: flex;
     flex-direction: column;
     gap: 20px;
@@ -954,6 +968,7 @@ input {
     padding: 8px 16px;
     font-size: 0.85rem;
 }
+
 .chart-card {
     background: var(--bg-card);
     border: 1px solid var(--border);
@@ -1337,21 +1352,25 @@ input {
         flex-direction: column;
         height: auto;
         min-height: calc(100vh - var(--navbar-height));
-        overflow: visible;
+        align-items: stretch;
     }
 
     .main-content {
-        min-height: 0;
         flex: 1;
-        padding-bottom: 48px;
+        padding-bottom: 80px;
+        overflow: visible;
     }
 
+    /* Reset sticky positioning on small screens — sidebar stacks above content */
     .sidebar {
+        position: static;
         width: 100%;
+        height: auto;
         border-right: none;
         border-bottom: 1px solid var(--border);
         flex-direction: row;
         flex-wrap: wrap;
+        overflow-y: visible;
     }
 
     .charts-row.two-col,
@@ -1362,8 +1381,6 @@ input {
     .widgets-row {
         grid-template-columns: 1fr 1fr;
     }
-
-   
 
     .chart-canvas-wrap {
         height: 340px;
