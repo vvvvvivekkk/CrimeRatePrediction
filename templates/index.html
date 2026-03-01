@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crime Rate Prediction System – India</title>
+    <meta name="description"
+        content="AI-powered crime rate prediction across 29 Indian states using Machine Learning, historical analysis, and interactive dashboards.">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+        rel="stylesheet">
+</head>
+
+<body class="home-body">
+
+    <!-- Ambient blobs -->
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+
+    <div class="hero-container">
+
+        <!-- Badge -->
+        <div class="hero-badge">
+            <span class="dot"></span>
+            AI-Powered Predictive Analytics · India 2024
+        </div>
+
+        <!-- Title -->
+        <h1 class="hero-title">
+            Crime Rate Prediction<br>System – India
+        </h1>
+
+        <!-- Subtitle -->
+        <p class="hero-subtitle">
+            Production-ready analytics platform for <strong>29 Indian States</strong>
+            — NCRB-calibrated data, temporal ML models with lag features,
+            multi-state filtering, and recursive 10-year forecasting.
+        </p>
+
+        <!-- Feature Pills -->
+        <div class="hero-tags">
+            <span class="hero-tag"><span class="icon">🗺️</span> Choropleth Map</span>
+            <span class="hero-tag"><span class="icon">📊</span> Multi-State Filter</span>
+            <span class="hero-tag"><span class="icon">🤖</span> XGBoost + Temporal Features</span>
+            <span class="hero-tag"><span class="icon">📄</span> PDF Report Export</span>
+            <span class="hero-tag"><span class="icon">🔮</span> Recursive 10-Year Forecast</span>
+            <span class="hero-tag"><span class="icon">📅</span> Year Range Filter</span>
+        </div>
+
+        <!-- Step Cards -->
+        <div class="action-steps">
+
+            <!-- Step 1 -->
+            <div class="step-card" id="card-1">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                    <h4>Generate Synthetic Data</h4>
+                    <p>Creates 15 years of crime data for all 29 states &amp; stores in SQLite.</p>
+                </div>
+                <div class="step-action">
+                    <button class="btn btn-primary" id="btn-generate" onclick="generateData()">
+                        <span id="gen-btn-text">Generate</span>
+                        <span id="gen-spinner" class="spinner hidden"></span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 2 -->
+            <div class="step-card" id="card-2">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                    <h4>Train Machine Learning Models</h4>
+                    <p>Trains LR, Random Forest &amp; XGBoost. Auto-saves best model as <code>model.pkl</code>.</p>
+                </div>
+                <div class="step-action">
+                    <button class="btn btn-primary" id="btn-train" onclick="trainModel()">
+                        <span id="train-btn-text">Train</span>
+                        <span id="train-spinner" class="spinner hidden"></span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 3 -->
+            <div class="step-card" id="card-3">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                    <h4>Explore the Dashboard</h4>
+                    <p>Interactive map, trend charts, risk rankings, and PDF report export.</p>
+                </div>
+                <div class="step-action">
+                    <a href="/dashboard" class="btn btn-success" id="btn-dashboard">
+                        Open Dashboard →
+                    </a>
+                </div>
+            </div>
+
+        </div><!-- /.action-steps -->
+
+        <!-- Status Message -->
+        <div id="status-message" class="status-msg" style="max-width:500px; width:100%;"></div>
+
+        <!-- Model Metrics (hidden until trained) -->
+        <div id="metrics-panel" class="hidden" style="max-width:500px; width:100%; margin-top:12px;">
+            <div class="metrics-card">
+                <h5>🏆 Best Model Results</h5>
+                <div class="metric-row">
+                    <span class="metric-label">Best Model</span>
+                    <span class="metric-value" id="m-best-model">–</span>
+                </div>
+                <div class="metric-row">
+                    <span class="metric-label">R² Score</span>
+                    <span class="metric-value" id="m-r2">–</span>
+                </div>
+                <div class="metric-row">
+                    <span class="metric-label">RMSE</span>
+                    <span class="metric-value" id="m-rmse">–</span>
+                </div>
+                <div class="metric-row">
+                    <span class="metric-label">MAE</span>
+                    <span class="metric-value" id="m-mae">–</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Strip -->
+        <div class="stats-strip">
+            <div class="stat-pill">
+                <div class="num">29</div>
+                <div class="lbl">Indian States</div>
+            </div>
+            <div class="stat-pill">
+                <div class="num">15yrs</div>
+                <div class="lbl">Training Data</div>
+            </div>
+            <div class="stat-pill">
+                <div class="num">3</div>
+                <div class="lbl">ML Models</div>
+            </div>
+            <div class="stat-pill">
+                <div class="num">10yr</div>
+                <div class="lbl">Max Forecast</div>
+            </div>
+        </div>
+
+    </div><!-- /.hero-container -->
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toasts"></div>
+
+    <script>
+        /* ─── Toast Utility ───────────────────────────────── */
+        function showToast(msg, type = 'info', duration = 4000) {
+            const icons = { info: 'ℹ️', success: '✅', error: '❌' };
+            const tc = document.getElementById('toasts');
+            const t = document.createElement('div');
+            t.className = `toast ${type}`;
+            t.innerHTML = `<span class="toast-icon">${icons[type]}</span><span class="toast-msg">${msg}</span>`;
+            tc.appendChild(t);
+            setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity 0.4s'; setTimeout(() => t.remove(), 400); }, duration);
+        }
+
+        /* ─── Status Helper ───────────────────────────────── */
+        function setStatus(msg, type) {
+            const el = document.getElementById('status-message');
+            el.className = `status-msg show ${type}`;
+            el.innerHTML = msg;
+        }
+
+        /* ─── Step 1: Generate Data ───────────────────────── */
+        async function generateData() {
+            const btn = document.getElementById('btn-generate');
+            const txt = document.getElementById('gen-btn-text');
+            const spin = document.getElementById('gen-spinner');
+
+            btn.disabled = true;
+            txt.textContent = 'Generating…';
+            spin.classList.remove('hidden');
+            setStatus('<span class="spinner"></span>&nbsp; Generating 15 years of synthetic data for 29 states…', 'info');
+
+            try {
+                const res = await fetch('/generate-data');
+                const data = await res.json();
+
+                if (data.error) throw new Error(data.error);
+
+                setStatus('✅ ' + (data.message || 'Dataset generation complete!'), 'success');
+                showToast('Data generated successfully!', 'success');
+
+                // Visually mark step 1 done
+                document.getElementById('card-1').style.borderColor = 'rgba(16,185,129,0.4)';
+                txt.textContent = '✓ Done';
+
+            } catch (err) {
+                setStatus('❌ ' + err.message, 'error');
+                showToast(err.message, 'error');
+                btn.disabled = false;
+                txt.textContent = 'Retry';
+            } finally {
+                spin.classList.add('hidden');
+            }
+        }
+
+        /* ─── Step 2: Train Model ─────────────────────────── */
+        async function trainModel() {
+            const btn = document.getElementById('btn-train');
+            const txt = document.getElementById('train-btn-text');
+            const spin = document.getElementById('train-spinner');
+
+            btn.disabled = true;
+            txt.textContent = 'Training…';
+            spin.classList.remove('hidden');
+            setStatus('<span class="spinner"></span>&nbsp; Training Linear Regression, Random Forest &amp; XGBoost. This may take a moment…', 'info');
+
+            try {
+                const res = await fetch('/train');
+                const data = await res.json();
+
+                if (data.error) throw new Error(data.error);
+                if (data.status !== 'success') throw new Error('Training failed.');
+
+                const bm = data.best_model;
+                const met = data.metrics[bm];
+
+                // Populate metrics panel
+                document.getElementById('m-best-model').textContent = bm;
+                document.getElementById('m-r2').textContent = met.R2_Score;
+                document.getElementById('m-rmse').textContent = met.RMSE;
+                document.getElementById('m-mae').textContent = met.MAE;
+                document.getElementById('metrics-panel').classList.remove('hidden');
+
+                setStatus(`✅ Training complete! Best Model: <strong>${bm}</strong> · R²: ${met.R2_Score}`, 'success');
+                showToast(`Best Model: ${bm} (R²=${met.R2_Score})`, 'success');
+
+                document.getElementById('card-2').style.borderColor = 'rgba(16,185,129,0.4)';
+                txt.textContent = '✓ Trained';
+
+            } catch (err) {
+                setStatus('❌ ' + err.message, 'error');
+                showToast(err.message, 'error');
+                btn.disabled = false;
+                txt.textContent = 'Retry';
+            } finally {
+                spin.classList.add('hidden');
+            }
+        }
+    </script>
+
+</body>
+
+</html>

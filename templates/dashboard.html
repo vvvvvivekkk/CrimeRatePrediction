@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard – Crime Analytics India</title>
+    <meta name="description" content="Production-ready crime analytics dashboard for 29 Indian states.">
+
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+</head>
+
+<body class="dashboard-body">
+
+    <!-- ━━━ NAVBAR ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <nav class="navbar">
+        <div class="nav-brand">
+            <div class="brand-icon">🔍</div>
+            <div>
+                <div class="brand-text">Crime Analytics India</div>
+                <div class="brand-sub">29 States · ML Powered · NCRB Calibrated</div>
+            </div>
+        </div>
+        <div class="nav-links">
+            <a href="/" class="nav-item">← Home</a>
+            <a href="/export-csv" class="btn-outline" id="export-csv-btn" target="_blank">⬇ Historical CSV</a>
+            <a href="/export-predictions-csv" class="btn-outline" target="_blank">⬇ Predictions CSV</a>
+        </div>
+    </nav>
+
+    <!-- ━━━ LAYOUT ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <div class="dashboard-container">
+
+        <!-- ─── SIDEBAR ─────────────────────────────────────── -->
+        <aside class="sidebar">
+            <div class="sidebar-title">Filters &amp; Controls</div>
+
+            <!-- Multi-State Selector -->
+            <div class="form-group">
+                <label>State Filter</label>
+                <div class="multiselect-wrapper" id="ms-wrapper">
+                    <div class="ms-trigger" id="ms-trigger" tabindex="0">
+                        <span id="ms-label">All States (India)</span>
+                        <span class="ms-arrow">▾</span>
+                    </div>
+                    <div class="ms-dropdown hidden" id="ms-dropdown">
+                        <div class="ms-search-box">
+                            <input type="text" id="ms-search" placeholder="Search states…" autocomplete="off">
+                        </div>
+                        <div class="ms-options" id="ms-options"></div>
+                        <div class="ms-footer">
+                            <button class="ms-btn" id="ms-select-all">All</button>
+                            <button class="ms-btn" id="ms-clear">Clear</button>
+                            <button class="ms-btn ms-btn-apply" id="ms-apply">Apply</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Year Range Filter -->
+            <div class="form-group">
+                <label>Historical Year Range</label>
+                <div class="year-range-row">
+                    <select id="year-preset">
+                        <option value="all">All Years</option>
+                        <option value="5">Last 5 Years</option>
+                        <option value="10">Last 10 Years</option>
+                        <option value="custom">Custom Range</option>
+                    </select>
+                </div>
+                <div id="custom-year-range" class="hidden year-inputs">
+                    <input type="number" id="start-year" placeholder="From" min="2010" max="2024" value="2010">
+                    <input type="number" id="end-year" placeholder="To" min="2010" max="2024" value="2024">
+                </div>
+            </div>
+
+            <!-- Forecast Horizon -->
+            <div class="form-group">
+                <label for="years-select">Forecast Horizon</label>
+                <select id="years-select">
+                    <option value="5">5 Years</option>
+                    <option value="10">10 Years</option>
+                    <option value="3">3 Years</option>
+                </select>
+            </div>
+
+            <div class="sidebar-divider"></div>
+
+            <div class="sidebar-actions">
+                <button class="btn btn-primary w-100" id="btn-apply-filters" onclick="applyFilters()">
+                    🔄 Apply Filters
+                </button>
+                <button class="btn btn-primary w-100" id="btn-forecast" onclick="runForecast()">
+                    <span id="fc-txt">🔮 Generate Forecast</span>
+                    <span id="fc-spin" class="spinner hidden"></span>
+                </button>
+                <button class="btn btn-secondary w-100" id="btn-report" onclick="downloadReport()">
+                    📄 Download PDF Report
+                </button>
+            </div>
+
+            <div class="sidebar-divider"></div>
+
+            <!-- Model / Prediction Stats -->
+            <div id="model-info" class="hidden">
+                <div class="sidebar-title">Live Stats</div>
+                <div class="metrics-card">
+                    <div class="metric-row">
+                        <span class="metric-label">States Loaded</span>
+                        <span class="metric-value" id="si-states">–</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Forecast Up To</span>
+                        <span class="metric-value" id="si-years">–</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">High Risk States</span>
+                        <span class="metric-value danger" id="si-high">–</span>
+                    </div>
+                </div>
+            </div>
+
+            <div id="side-msg" class="text-sm" style="padding:4px;"></div>
+        </aside>
+
+        <!-- ─── MAIN CONTENT ─────────────────────────────────── -->
+        <main class="main-content" id="main-content">
+
+            <!-- ── KPI Widgets ── -->
+            <div class="widgets-row" id="kpi-row">
+                <div class="widget">
+                    <div class="widget-label"><span class="widget-icon">🏴</span> Top Risk State</div>
+                    <div class="widget-val danger" id="w-top-state">–</div>
+                    <div class="widget-sub" id="w-top-state-sub"></div>
+                </div>
+                <div class="widget">
+                    <div class="widget-label"><span class="widget-icon">📈</span> Highest Pred. Rate</div>
+                    <div class="widget-val warning" id="w-highest-rate">–</div>
+                    <div class="widget-sub">per 100k population</div>
+                </div>
+                <div class="widget">
+                    <div class="widget-label"><span class="widget-icon">📊</span> Avg. Crime Rate</div>
+                    <div class="widget-val accent" id="w-avg-rate">–</div>
+                    <div class="widget-sub">per 100k population</div>
+                </div>
+                <div class="widget">
+                    <div class="widget-label"><span class="widget-icon">🛡️</span> Low Risk States</div>
+                    <div class="widget-val success" id="w-low-count">–</div>
+                    <div class="widget-sub" id="w-low-sub">out of 29</div>
+                </div>
+            </div>
+
+            <!-- ── Loading overlay ── -->
+            <div id="loading-overlay" class="loading-overlay hidden">
+                <div class="loading-spinner"></div>
+                <div class="loading-text" id="loading-text">Loading data…</div>
+            </div>
+
+            <!-- ── Row 1: Map + Trend Chart ── -->
+            <div class="charts-row two-col">
+                <div class="chart-card map-card">
+                    <div class="chart-title-row">
+                        <div class="chart-title"><span class="icon">🗺️</span> India Crime Heatmap</div>
+                        <span id="map-year-label" class="text-sm"></span>
+                    </div>
+                    <div id="map"></div>
+                    <div class="map-legend">
+                        <span class="legend-item"><span class="legend-dot" style="background:#10b981"></span>Low
+                            (&lt;150)</span>
+                        <span class="legend-item"><span class="legend-dot" style="background:#f59e0b"></span>Medium
+                            (150–300)</span>
+                        <span class="legend-item"><span class="legend-dot" style="background:#ef4444"></span>High
+                            (&gt;300)</span>
+                        <span class="legend-item"><span class="legend-dot"
+                                style="background:rgba(148,163,184,0.4);border:1px solid #475569"></span>No data</span>
+                    </div>
+                </div>
+
+                <div class="chart-card">
+                    <div class="chart-title-row">
+                        <div class="chart-title" id="trend-title"><span class="icon">📉</span> Historical &amp; Forecast
+                            Trend</div>
+                    </div>
+                    <div id="trend-empty" class="empty-state hidden">No data for selected filters.</div>
+                    <canvas id="trendChart" height="320"></canvas>
+                </div>
+            </div>
+
+            <!-- ── Row 2: Bar + Doughnut + Radar ── -->
+            <div class="charts-row three-col">
+                <div class="chart-card">
+                    <div class="chart-title"><span class="icon">🏆</span> Top 10 High-Risk States</div>
+                    <canvas id="barChart" height="260"></canvas>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-title"><span class="icon">🔴</span> Risk Distribution</div>
+                    <canvas id="riskChart" height="260"></canvas>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-title"><span class="icon">📐</span> Socioeconomic Correlation</div>
+                    <canvas id="featureChart" height="260"></canvas>
+                </div>
+            </div>
+
+            <!-- ── Row 3: Predictions Table ── -->
+            <div class="chart-card">
+                <div class="chart-title-row">
+                    <div class="chart-title"><span class="icon">📋</span> Forecast Results</div>
+                    <div style="display:flex;gap:8px;align-items:center;">
+                        <span id="table-state-label" class="text-sm"></span>
+                        <input type="text" id="table-search" placeholder="Search state…"
+                            style="padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-primary);font-size:12px;width:140px;">
+                    </div>
+                </div>
+                <div id="table-empty" class="empty-state hidden">No forecast data. Click "Generate Forecast" to begin.
+                </div>
+                <div class="table-wrapper">
+                    <table class="data-table" id="pred-table">
+                        <thead>
+                            <tr>
+                                <th onclick="sortTable(0)" class="sortable">State ↕</th>
+                                <th onclick="sortTable(1)" class="sortable">Year ↕</th>
+                                <th onclick="sortTable(2)" class="sortable">Predicted Rate ↕</th>
+                                <th>Risk Level</th>
+                                <th>Trend vs Prev</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pred-tbody">
+                            <tr>
+                                <td colspan="5" style="text-align:center;color:var(--text-muted);padding:30px;">No
+                                    forecast data. Click "Generate Forecast" to begin.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div class="toast-container" id="toasts"></div>
+
+    <!-- Dashboard JS -->
+    <script src="/static/js/dashboard.js"></script>
+
+</body>
+
+</html>

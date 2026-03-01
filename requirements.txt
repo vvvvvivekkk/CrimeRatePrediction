@@ -1,0 +1,12 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+pandas
+numpy
+scikit-learn
+xgboost
+joblib
+reportlab
+jinja2
+python-multipart
+aiofiles
