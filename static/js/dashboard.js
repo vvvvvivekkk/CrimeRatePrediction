@@ -185,6 +185,19 @@ function setupYearFilter() {
     });
 }
 
+function setupScrollToForecastResults() {
+    const btn = document.getElementById('btn-scroll-to-results');
+    const section = document.getElementById('forecast-results-section');
+    const mainContent = document.getElementById('main-content');
+    if (!btn || !section || !mainContent) return;
+    btn.addEventListener('click', () => {
+        const containerRect = mainContent.getBoundingClientRect();
+        const sectionRect = section.getBoundingClientRect();
+        const offset = sectionRect.top - containerRect.top + mainContent.scrollTop;
+        mainContent.scrollTo({ top: Math.max(0, offset - 16), behavior: 'smooth' });
+    });
+}
+
 function getYearRange() {
     const preset = document.getElementById('year-preset').value;
     const now = 2024;
@@ -846,6 +859,7 @@ async function init() {
     initMap();
     setupMultiSelectUI();
     setupYearFilter();
+    setupScrollToForecastResults();
     await loadFeatureImportance();
 
     const states = await loadStates();

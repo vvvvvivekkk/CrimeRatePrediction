@@ -164,9 +164,10 @@
                 <div class="loading-text" id="loading-text">Loading data…</div>
             </div>
 
-            <!-- Scroll to Forecast anchor target -->
+            <!-- Scroll shortcuts -->
             <div class="dashboard-actions">
                 <a href="#forecast-section" class="btn btn-outline scroll-to-forecast">↓ Scroll to Forecast</a>
+                <button type="button" class="btn btn-outline scroll-to-forecast-results" id="btn-scroll-to-results" aria-label="Scroll to Forecast Results table">↓ Forecast Results Table</button>
             </div>
 
             <!-- ── Row 1: Heatmap | Line chart ── -->
@@ -229,18 +230,18 @@
                 </div>
             </div>
 
-            <!-- ── Row 4: Feature importance ── -->
+            <!-- ── Row 4: Feature importance (compact so Forecast Results is reachable) ── -->
             <div class="charts-row charts-row--full">
-                <div class="chart-card">
+                <div class="chart-card chart-card--feature-importance">
                     <div class="chart-title"><span class="icon">📐</span> Feature Importance</div>
-                    <div class="chart-container chart-canvas-wrap">
+                    <div class="chart-container chart-canvas-wrap chart-container--compact">
                         <canvas id="featureChart"></canvas>
                     </div>
                 </div>
             </div>
 
             <!-- ── Predictions Table (Forecast Results) ── -->
-            <div class="chart-card table-card" id="forecast-results-section">
+            <div class="chart-card table-card" id="forecast-results-section" data-scroll-target="forecast-results">
                 <div class="chart-title-row">
                     <div class="chart-title"><span class="icon">📋</span> Forecast Results</div>
                     <div style="display:flex;gap:8px;align-items:center;">
