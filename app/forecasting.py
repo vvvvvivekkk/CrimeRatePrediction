@@ -1,15 +1,14 @@
 """
 forecasting.py – Recursive, time-aware crime rate forecasting.
 
-Strategy:
-  1. For each state, use the last N years of historical data to seed lag/rolling features.
-  2. At each future step, use the model to predict the next year's crime rate.
-  3. Feed that prediction back as crime_lag1/lag2/rolling3 for subsequent steps
-     (recursive / "chained" forecasting — no random noise injected).
-  4. Project socioeconomic features using data-driven trends (not magic constants).
+- Adds forecast uncertainty noise (σ=3)
+- Mild regression toward state historical mean to prevent unrealistic exponential drop
+- Forecasts kept stable in [80, 450]
+- Optional 95% confidence interval: ± 1.96 * RMSE (from model_metrics.json when available)
 """
 from __future__ import annotations
 
+import json
 import os
 import joblib
 import numpy as np
@@ -17,7 +16,7 @@ import pandas as pd
 from sqlalchemy.orm import Session
 
 from app.models import PredictedCrimeData, HistoricalCrimeData
-from app.ml_model import MODEL_PATH
+from app.ml_model import MODEL_PATH, METRICS_PATH
 from app.preprocessing import FEATURES
 
 
@@ -30,12 +29,23 @@ def classify_crime_level(rate: float) -> str:
         return "High"
 
 
+def _get_rmse_for_confidence() -> float | None:
+    """Load RMSE from model_metrics.json for optional confidence interval."""
+    if not os.path.isfile(METRICS_PATH):
+        return None
+    try:
+        with open(METRICS_PATH) as f:
+            m = json.load(f)
+        return m.get("rmse")
+    except Exception:
+        return None
+
+
 def _compute_trend(series: pd.Series, col: str) -> float:
     """Linear trend per year for a state time-series column."""
     if len(series) < 2:
         return 0.0
     x = np.arange(len(series), dtype=float)
-    # Simple OLS slope
     x_mean = x.mean()
     y_mean = series.mean()
     slope = ((x - x_mean) * (series.values - y_mean)).sum() / max(((x - x_mean) ** 2).sum(), 1e-9)
@@ -49,25 +59,22 @@ def forecast_crime_rates(
 ) -> dict:
     """
     Recursively forecast crime rates for `years_to_predict` years.
-
-    Parameters
-    ----------
-    target_state : str | None  – single state name or None for all states
-    years_to_predict : int      – 1–10
+    Adds uncertainty noise, regression toward historical mean, and optional confidence interval.
     """
-    # ── Load model ─────────────────────────────────────────────────────────────
     if not os.path.exists(MODEL_PATH):
         return {"error": "Model not found. Please train the model first."}
 
     try:
-        saved     = joblib.load(MODEL_PATH)
-        model     = saved["model"]
-        scaler    = saved["scaler"]
-        features  = saved["features"]
+        saved = joblib.load(MODEL_PATH)
+        model = saved["model"]
+        scaler = saved["scaler"]
+        features = saved["features"]
     except Exception as e:
         return {"error": f"Failed to load model: {str(e)}"}
 
-    # ── Fetch historical data ───────────────────────────────────────────────────
+    rmse = _get_rmse_for_confidence()
+    rng = np.random.default_rng(42)
+
     query = db.query(HistoricalCrimeData)
     if target_state:
         query = query.filter(HistoricalCrimeData.state_name == target_state)
@@ -82,14 +89,15 @@ def forecast_crime_rates(
     hist_df = hist_df.sort_values(["state_name", "year"])
     max_hist_year = int(hist_df["year"].max())
 
-    # ── Per-state recursive forecasting ────────────────────────────────────────
     predictions_to_save: list[PredictedCrimeData] = []
     response_data: list[dict] = []
 
     for state, sdf in hist_df.groupby("state_name"):
         sdf = sdf.sort_values("year").reset_index(drop=True)
+        hist_crime = sdf["crime_rate_per_100k"].values
+        state_historical_mean = float(np.mean(hist_crime))
+        state_historical_std = float(np.std(hist_crime)) if len(hist_crime) > 1 else 10.0
 
-        # Compute per-feature linear trends from historical data
         socio_trends = {
             col: _compute_trend(sdf[col], col)
             for col in [
@@ -98,17 +106,13 @@ def forecast_crime_rates(
             ]
         }
 
-        # Seed values: last known row
         seed = sdf.iloc[-1].to_dict()
-        last_year     = int(seed["year"])
-        last_cr       = float(seed["crime_rate_per_100k"])
-
-        # Seed the rolling window (up to last 3 years of actual crime rate)
-        hist_crimes   = list(sdf["crime_rate_per_100k"].values)
+        last_year = int(seed["year"])
+        last_cr = float(seed["crime_rate_per_100k"])
+        hist_crimes = list(sdf["crime_rate_per_100k"].values)
         min_hist_year = int(sdf["year"].min())
 
         def get_lag(n: int) -> float:
-            """Get crime rate n years before the CURRENT prediction step."""
             idx = len(hist_crimes) - n
             return float(hist_crimes[idx]) if idx >= 0 else last_cr
 
@@ -121,49 +125,50 @@ def forecast_crime_rates(
         for step in range(1, years_to_predict + 1):
             future_year = last_year + step
 
-            # Project socioeconomic features by trend
             curr_features["year"] = future_year
             curr_features["year_trend"] = future_year - min_hist_year
             for col, trend in socio_trends.items():
-                curr_features[col] = max(
-                    1.0,
-                    float(curr_features[col]) + trend
-                )
-            # Reasonable caps
-            curr_features["literacy_rate"]     = min(99.0, curr_features["literacy_rate"])
-            curr_features["urbanization_rate"]  = min(95.0, curr_features["urbanization_rate"])
-            curr_features["unemployment_rate"]  = max(1.5,  curr_features["unemployment_rate"])
+                curr_features[col] = max(1.0, float(curr_features[col]) + trend)
+            curr_features["literacy_rate"] = min(99.0, curr_features["literacy_rate"])
+            curr_features["urbanization_rate"] = min(95.0, curr_features["urbanization_rate"])
+            curr_features["unemployment_rate"] = max(1.5, curr_features["unemployment_rate"])
             curr_features["police_strength_per_100k"] = max(50.0, curr_features["police_strength_per_100k"])
 
-            # Temporal lag features – use running hist_crimes list
             lag1 = get_lag(1)
             lag2 = get_lag(2)
-            r3   = rolling3_of(hist_crimes[-3:] if len(hist_crimes) >= 3 else hist_crimes)
-
+            r3 = rolling3_of(hist_crimes[-3:] if len(hist_crimes) >= 3 else hist_crimes)
             curr_features["crime_lag1"] = lag1
             curr_features["crime_lag2"] = lag2
-            curr_features["rolling3"]   = r3
+            curr_features["rolling3"] = r3
 
-            # Build feature row in correct order
             row_dict = {f: curr_features.get(f, 0.0) for f in features}
             X_row = pd.DataFrame([row_dict])[features]
             X_scaled = scaler.transform(X_row)
 
             predicted_rate = float(model.predict(X_scaled)[0])
-            # Clip to plausible crime rate range
-            predicted_rate = float(np.clip(predicted_rate, 30.0, 800.0))
+            # Forecast uncertainty noise
+            predicted_rate += float(rng.normal(0, 3.0))
+            # Mild regression toward state historical mean (prevent unrealistic exponential drop)
+            alpha = 0.92  # weight on raw prediction
+            predicted_rate = alpha * predicted_rate + (1 - alpha) * state_historical_mean
+            # Keep forecast stable in [80, 450]
+            predicted_rate = float(np.clip(predicted_rate, 80.0, 450.0))
             predicted_rate = round(predicted_rate, 2)
-            crime_lvl      = classify_crime_level(predicted_rate)
+            crime_lvl = classify_crime_level(predicted_rate)
 
-            # Push this prediction into the running history for next step's lags
             hist_crimes.append(predicted_rate)
 
-            response_data.append({
-                "state_name":           state,
-                "year":                 future_year,
+            row_out = {
+                "state_name": state,
+                "year": future_year,
                 "predicted_crime_rate": predicted_rate,
-                "crime_level":          crime_lvl,
-            })
+                "crime_level": crime_lvl,
+            }
+            if rmse is not None and rmse > 0:
+                half_width = 1.96 * rmse
+                row_out["confidence_lower"] = round(max(80, predicted_rate - half_width), 2)
+                row_out["confidence_upper"] = round(min(450, predicted_rate + half_width), 2)
+            response_data.append(row_out)
 
             predictions_to_save.append(PredictedCrimeData(
                 state_name=state,
@@ -172,7 +177,6 @@ def forecast_crime_rates(
                 crime_level=crime_lvl,
             ))
 
-    # ── Persist ─────────────────────────────────────────────────────────────────
     years_being_saved = list({r["year"] for r in response_data})
     if target_state:
         (db.query(PredictedCrimeData)

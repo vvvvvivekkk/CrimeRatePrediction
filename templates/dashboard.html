@@ -132,6 +132,7 @@
 
         <!-- ─── MAIN CONTENT ─────────────────────────────────── -->
         <main class="main-content" id="main-content">
+            <span id="dashboard-top" class="dashboard-top-anchor" aria-hidden="true"></span>
 
             <!-- ── KPI Widgets ── -->
             <div class="widgets-row" id="kpi-row">
@@ -163,14 +164,21 @@
                 <div class="loading-text" id="loading-text">Loading data…</div>
             </div>
 
-            <!-- ── Row 1: Map + Trend Chart ── -->
+            <!-- Scroll to Forecast anchor target -->
+            <div class="dashboard-actions">
+                <a href="#forecast-section" class="btn btn-outline scroll-to-forecast">↓ Scroll to Forecast</a>
+            </div>
+
+            <!-- ── Row 1: Heatmap | Line chart ── -->
             <div class="charts-row two-col">
                 <div class="chart-card map-card">
                     <div class="chart-title-row">
                         <div class="chart-title"><span class="icon">🗺️</span> India Crime Heatmap</div>
                         <span id="map-year-label" class="text-sm"></span>
                     </div>
-                    <div id="map"></div>
+                    <div class="chart-container chart-canvas-wrap chart-canvas-wrap--map">
+                        <div id="map"></div>
+                    </div>
                     <div class="map-legend">
                         <span class="legend-item"><span class="legend-dot" style="background:#10b981"></span>Low
                             (&lt;150)</span>
@@ -189,36 +197,50 @@
                             Trend</div>
                     </div>
                     <div id="trend-empty" class="empty-state hidden">No data for selected filters.</div>
-                    <canvas id="trendChart" height="320"></canvas>
+                    <div class="chart-container chart-canvas-wrap">
+                        <canvas id="trendChart"></canvas>
+                    </div>
                 </div>
             </div>
 
-            <!-- ── Row 2: Bar + Doughnut + Radar ── -->
-            <div class="charts-row three-col">
+            <!-- ── Row 2: Top 5 bar | Growth pie (Risk Distribution) ── -->
+            <div class="charts-row two-col">
                 <div class="chart-card">
                     <div class="chart-title"><span class="icon">🏆</span> Top 5 High-Risk States</div>
-                    <canvas id="barChart" height="260"></canvas>
+                    <div class="chart-container chart-canvas-wrap">
+                        <canvas id="barChart"></canvas>
+                    </div>
                 </div>
                 <div class="chart-card">
                     <div class="chart-title"><span class="icon">🔴</span> Risk Distribution</div>
-                    <canvas id="riskChart" height="260"></canvas>
-                </div>
-                <div class="chart-card">
-                    <div class="chart-title"><span class="icon">📐</span> Feature Importance</div>
-                    <canvas id="featureChart" height="260"></canvas>
+                    <div class="chart-container chart-canvas-wrap">
+                        <canvas id="riskChart"></canvas>
+                    </div>
                 </div>
             </div>
 
-            <!-- Row: Crime Growth % (10-year) -->
-            <div class="charts-row two-col">
+            <!-- ── Row 3: Forecast bar (full width) ── -->
+            <div class="charts-row charts-row--full" id="forecast-section">
                 <div class="chart-card">
                     <div class="chart-title"><span class="icon">📈</span> Crime Growth % (10-Year)</div>
-                    <canvas id="growthChart" height="260"></canvas>
+                    <div class="chart-container chart-canvas-wrap">
+                        <canvas id="growthChart"></canvas>
+                    </div>
                 </div>
             </div>
 
-            <!-- ── Row 3: Predictions Table ── -->
-            <div class="chart-card">
+            <!-- ── Row 4: Feature importance ── -->
+            <div class="charts-row charts-row--full">
+                <div class="chart-card">
+                    <div class="chart-title"><span class="icon">📐</span> Feature Importance</div>
+                    <div class="chart-container chart-canvas-wrap">
+                        <canvas id="featureChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── Predictions Table ── -->
+            <div class="chart-card table-card">
                 <div class="chart-title-row">
                     <div class="chart-title"><span class="icon">📋</span> Forecast Results</div>
                     <div style="display:flex;gap:8px;align-items:center;">
@@ -252,6 +274,9 @@
 
         </main>
     </div>
+
+    <!-- Back to Top -->
+    <a href="#dashboard-top" class="back-to-top" id="back-to-top" aria-label="Back to top">↑ Back to Top</a>
 
     <!-- Toast Notifications -->
     <div class="toast-container" id="toasts"></div>

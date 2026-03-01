@@ -60,6 +60,11 @@ html {
     scroll-behavior: smooth;
 }
 
+/* Dashboard: prevent layout jump, smooth scroll */
+.dashboard-body {
+    overflow-x: hidden;
+}
+
 body {
     font-family: 'Inter', system-ui, sans-serif;
     background: var(--bg-primary);
@@ -816,11 +821,14 @@ input {
 /* ── Main Content ── */
 .main-content {
     flex: 1;
+    min-height: 0;
     overflow-y: auto;
+    overflow-x: hidden;
     padding: 24px;
     display: flex;
     flex-direction: column;
     gap: 20px;
+    scroll-behavior: smooth;
 }
 
 /* ── Widgets Strip ── */
@@ -922,6 +930,22 @@ input {
     grid-template-columns: 1.5fr 1fr 1fr;
 }
 
+/* Full-width single column (Row 3 Forecast bar, Row 4 Feature importance) */
+.charts-row--full {
+    grid-template-columns: 1fr;
+}
+
+.dashboard-actions {
+    display: flex;
+    gap: 12px;
+    flex-shrink: 0;
+}
+
+.scroll-to-forecast {
+    padding: 8px 16px;
+    font-size: 0.85rem;
+}
+
 .chart-card {
     background: var(--bg-card);
     border: 1px solid var(--border);
@@ -930,10 +954,55 @@ input {
     position: relative;
     overflow: hidden;
     transition: all var(--transition-base);
+    display: flex;
+    flex-direction: column;
+}
+
+/* Only chart cards with canvas/map get fixed max-height; table card stays flexible */
+.chart-card:has(.chart-canvas-wrap) {
+    max-height: 500px;
 }
 
 .chart-card:hover {
     border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Chart container: fixed height, no infinite expand */
+.chart-container {
+    height: 400px;
+    position: relative;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+/* Fixed-height chart containers – prevent charts from expanding page */
+.chart-canvas-wrap {
+    height: 380px;
+    min-height: 280px;
+    max-height: 400px;
+    overflow: hidden;
+    position: relative;
+    flex-shrink: 0;
+    padding: 0;
+    margin-top: 0;
+}
+
+.chart-container.chart-canvas-wrap {
+    height: 400px;
+    min-height: 320px;
+    max-height: 400px;
+}
+
+.chart-canvas-wrap canvas {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+    max-height: 100%;
+}
+
+.chart-card .chart-title,
+.chart-card .chart-title-row {
+    flex-shrink: 0;
 }
 
 .chart-title {
@@ -959,11 +1028,32 @@ input {
 
 /* ── Map Card ── */
 .map-card {
-    min-height: 420px;
+    max-height: 500px;
+    display: flex;
+    flex-direction: column;
+}
+
+.chart-canvas-wrap--map {
+    height: 380px;
+    min-height: 320px;
+    max-height: 420px;
+    flex-shrink: 0;
+    overflow: hidden;
+    border-radius: var(--radius-sm);
+}
+
+.chart-canvas-wrap--map #map {
+    height: 100% !important;
+    min-height: 320px;
+    max-height: 420px;
+    width: 100%;
+    border-radius: var(--radius-sm);
+    background: #0d1117;
+    overflow: hidden;
 }
 
 #map {
-    height: 370px;
+    height: 380px;
     border-radius: var(--radius-sm);
     background: #0d1117;
     overflow: hidden;
@@ -1152,6 +1242,47 @@ input {
     line-height: 1.4;
 }
 
+/* ─── Back to Top ── */
+.dashboard-top-anchor {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+}
+
+.back-to-top {
+    position: fixed;
+    bottom: 88px;
+    right: 24px;
+    z-index: 900;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    color: var(--text-secondary);
+    font-size: 1.25rem;
+    font-weight: 600;
+    text-decoration: none;
+    box-shadow: var(--shadow-md);
+    transition: all var(--transition-base);
+    opacity: 0.85;
+}
+
+.back-to-top:hover {
+    background: var(--bg-hover);
+    color: var(--accent);
+    border-color: var(--border-bright);
+    opacity: 1;
+    transform: translateY(-2px);
+}
+
 /* ─── Progress Bar ── */
 .progress-bar-wrap {
     background: rgba(255, 255, 255, 0.06);
@@ -1168,6 +1299,7 @@ input {
 }
 
 /* ─── Responsive ─────────────────────────────────────────── */
+/* Desktop: 2 columns for chart rows (default in .two-col, .three-col) */
 @media (max-width: 1280px) {
     .widgets-row {
         grid-template-columns: repeat(2, 1fr);
@@ -1176,12 +1308,33 @@ input {
     .charts-row.three-col {
         grid-template-columns: 1fr 1fr;
     }
+
+    .chart-canvas-wrap {
+        height: 350px;
+        min-height: 260px;
+    }
+
+    .chart-canvas-wrap--map {
+        height: 360px;
+        min-height: 280px;
+    }
+
+    .chart-container {
+        height: 380px;
+    }
 }
 
+/* Tablet: single column stacked, full width */
 @media (max-width: 900px) {
     .dashboard-container {
         flex-direction: column;
         height: auto;
+        min-height: calc(100vh - var(--navbar-height));
+    }
+
+    .main-content {
+        min-height: 0;
+        flex: 1;
     }
 
     .sidebar {
@@ -1200,8 +1353,38 @@ input {
     .widgets-row {
         grid-template-columns: 1fr 1fr;
     }
+
+    .chart-card:has(.chart-canvas-wrap) {
+        max-height: 460px;
+    }
+
+    .chart-canvas-wrap {
+        height: 340px;
+        min-height: 280px;
+        max-height: 380px;
+    }
+
+    .chart-canvas-wrap--map {
+        height: 340px;
+        min-height: 300px;
+        max-height: 400px;
+    }
+
+    .back-to-top {
+        bottom: 24px;
+        right: 20px;
+    }
+
+    .charts-row.two-col {
+        grid-template-columns: 1fr;
+    }
+
+    .chart-container {
+        height: 360px;
+    }
 }
 
+/* Mobile: full width stacked */
 @media (max-width: 540px) {
     .widgets-row {
         grid-template-columns: 1fr;
@@ -1213,6 +1396,38 @@ input {
 
     .stats-strip {
         gap: 24px;
+    }
+
+    .main-content {
+        padding: 16px;
+    }
+
+    .chart-canvas-wrap {
+        height: 300px;
+        min-height: 260px;
+        max-height: 350px;
+    }
+
+    .chart-canvas-wrap--map {
+        height: 300px;
+        min-height: 260px;
+        max-height: 360px;
+    }
+
+    .back-to-top {
+        width: 40px;
+        height: 40px;
+        bottom: 20px;
+        right: 16px;
+        font-size: 1.1rem;
+    }
+
+    .chart-container {
+        height: 320px;
+    }
+
+    .dashboard-actions {
+        justify-content: center;
     }
 }
 
