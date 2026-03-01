@@ -188,13 +188,9 @@ function setupYearFilter() {
 function setupScrollToForecastResults() {
     const btn = document.getElementById('btn-scroll-to-results');
     const section = document.getElementById('forecast-results-section');
-    const mainContent = document.getElementById('main-content');
-    if (!btn || !section || !mainContent) return;
+    if (!btn || !section) return;
     btn.addEventListener('click', () => {
-        const containerRect = mainContent.getBoundingClientRect();
-        const sectionRect = section.getBoundingClientRect();
-        const offset = sectionRect.top - containerRect.top + mainContent.scrollTop;
-        mainContent.scrollTo({ top: Math.max(0, offset - 16), behavior: 'smooth' });
+        section.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
 }
 
