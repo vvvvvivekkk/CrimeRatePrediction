@@ -41,11 +41,66 @@ const COLORS = {
 const PALETTE = Object.values(COLORS);
 
 /* ─── GeoJSON → DB name aliases ─────────────────────────────── */
+/* Maps every GADM GeoJSON NAME_1 variant → the DB state_name used
+   in the dataset. Add entries here whenever the popup shows N/A.  */
 const STATE_ALIASES = {
+    // Spelling / old-name variants (GADM dataset)
     'Orissa': 'Odisha',
     'Uttaranchal': 'Uttarakhand',
     'Pondicherry': 'Puducherry',
+
+    // GADM often uses these exact names – map to DB name
+    'Andaman and Nicobar': 'Andaman and Nicobar Islands',
+    'Andaman & Nicobar': 'Andaman and Nicobar Islands',
+    'Andaman and Nicobar Islands': 'Andaman and Nicobar Islands',
+    'Dadra and Nagar Haveli': 'Dadra and Nagar Haveli',
+    'Daman and Diu': 'Daman and Diu',
+    'Jammu and Kashmir': 'Jammu and Kashmir',
+    'Jammu & Kashmir': 'Jammu and Kashmir',
+    'NCT of Delhi': 'Delhi',
+    'Delhi': 'Delhi',
+    'Arunachal Pradesh': 'Arunachal Pradesh',
+    'Himachal Pradesh': 'Himachal Pradesh',
+    'Madhya Pradesh': 'Madhya Pradesh',
+    'Andhra Pradesh': 'Andhra Pradesh',
+    'Uttar Pradesh': 'Uttar Pradesh',
+    'West Bengal': 'West Bengal',
+    'Tamil Nadu': 'Tamil Nadu',
+    'Chhattisgarh': 'Chhattisgarh',
+    'Chattisgarh': 'Chhattisgarh',
 };
+
+/* Build a lowercase → canonical DB name lookup for fallback matching */
+function buildLookupWithFallback(predData) {
+    const lookup = {};
+    predData.forEach(r => {
+        if (!lookup[r.state_name] || r.year > lookup[r.state_name].year)
+            lookup[r.state_name] = r;
+    });
+    // Also index by lowercase for case-insensitive fallback
+    const lowerLookup = {};
+    Object.keys(lookup).forEach(k => { lowerLookup[k.toLowerCase().trim()] = lookup[k]; });
+    return { lookup, lowerLookup };
+}
+
+/* Resolve a GeoJSON NAME_1 to the dataset entry, with multiple fallbacks */
+function resolveEntry(geoName, lookup, lowerLookup) {
+    if (!geoName) return null;
+    // 1. Direct alias map
+    const aliased = STATE_ALIASES[geoName];
+    if (aliased && lookup[aliased]) return lookup[aliased];
+    // 2. Exact DB name match
+    if (lookup[geoName]) return lookup[geoName];
+    // 3. Case-insensitive match
+    const lower = geoName.toLowerCase().trim();
+    if (lowerLookup[lower]) return lowerLookup[lower];
+    // 4. Partial match (GeoJSON name starts with or contains DB name)
+    for (const [dbKey, entry] of Object.entries(lookup)) {
+        if (lower.includes(dbKey.toLowerCase()) || dbKey.toLowerCase().includes(lower))
+            return entry;
+    }
+    return null;
+}
 
 const STATE_COORDS = {
     "Andhra Pradesh": [15.91, 79.74], "Arunachal Pradesh": [28.21, 94.72],
@@ -239,11 +294,8 @@ function updateMapLayer(predictedData) {
 
     const isHighlighted = new Set(State.selectedStates);
 
-    const lookup = {};
-    predictedData.forEach(r => {
-        if (!lookup[r.state_name] || r.year > lookup[r.state_name].year)
-            lookup[r.state_name] = r;
-    });
+    // Build lookup with case-insensitive fallback
+    const { lookup, lowerLookup } = buildLookupWithFallback(predictedData);
 
     if (State.geoLayer) State.leafletMap.removeLayer(State.geoLayer);
 
@@ -269,9 +321,10 @@ function updateMapLayer(predictedData) {
         .then(geojson => {
             State.geoLayer = L.geoJSON(geojson, {
                 style: feat => {
-                    const geoName = feat.properties.NAME_1 || feat.properties.name || '';
-                    const dbName = STATE_ALIASES[geoName] || geoName;
-                    const entry = lookup[dbName];
+                    const geoName = (feat.properties.NAME_1 || feat.properties.name || '').trim();
+                    const entry = resolveEntry(geoName, lookup, lowerLookup);
+                    /* resolved DB name for highlight check */
+                    const dbName = entry ? entry.state_name : (STATE_ALIASES[geoName] || geoName);
                     const isSelected = isHighlighted.size === 0 || isHighlighted.has(dbName);
                     return {
                         fillColor: entry ? getRateColor(entry.predicted_crime_rate) : '#1e293b',
@@ -281,13 +334,16 @@ function updateMapLayer(predictedData) {
                     };
                 },
                 onEachFeature: (feat, layer) => {
-                    const geoName = feat.properties.NAME_1 || feat.properties.name || '';
-                    const dbName = STATE_ALIASES[geoName] || geoName;
-                    const entry = lookup[dbName];
+                    const geoName = (feat.properties.NAME_1 || feat.properties.name || '').trim();
+                    const entry = resolveEntry(geoName, lookup, lowerLookup);
+                    const dbName = entry ? entry.state_name : (STATE_ALIASES[geoName] || geoName);
                     const rate = entry ? entry.predicted_crime_rate.toFixed(1) : 'N/A';
-                    const lvl = entry ? entry.crime_level : 'N/A';
+                    const lvl = entry ? entry.crime_level : 'No data';
                     const yr = entry ? entry.year : '–';
                     const color = entry ? getRateColor(entry.predicted_crime_rate) : '#64748b';
+
+                    // Log unmatched states once so developers can extend the alias map
+                    if (!entry) console.warn('[Map] No data for GeoJSON state:', geoName);
 
                     layer.bindPopup(`
                         <div style="min-width:190px;padding:6px 0;">
@@ -314,7 +370,7 @@ function updateMapLayer(predictedData) {
                     fillColor: getRateColor(entry.predicted_crime_rate),
                     color: '#0f172a', weight: 1, fillOpacity: 0.85,
                 }).addTo(State.leafletMap)
-                    .bindPopup(`<b>${name}</b><br>${entry.predicted_crime_rate} / 100k<br>Risk: ${entry.crime_level}`);
+                    .bindPopup(`<b>${name}</b><br>${entry.predicted_crime_rate.toFixed(1)} / 100k<br>Risk: ${entry.crime_level}`);
             });
         });
 
@@ -595,7 +651,7 @@ function updateKPIs(predictedData) {
 
 /* Forecast Results table removed — these stubs prevent runtime errors
    in any code paths that still call updateTable / renderTable.        */
-function sortTable() {}
+function sortTable() { }
 function renderTable(data) { State.tableData = data || []; }
 function updateTable(data) { renderTable(data); }
 

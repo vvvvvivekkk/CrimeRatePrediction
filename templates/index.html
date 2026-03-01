@@ -13,7 +13,7 @@
         rel="stylesheet">
 </head>
 
-<body class="home-body">
+<body class="home-body" id="home-top">
 
     <!-- Ambient blobs -->
     <div class="blob blob-1"></div>
@@ -40,6 +40,12 @@
             multi-state filtering, and recursive 10-year forecasting.
         </p>
 
+        <!-- Scroll-Down CTA Button -->
+        <a href="#action-steps" class="btn btn-outline scroll-down-btn" id="btn-scroll-steps"
+            aria-label="Scroll to steps" style="margin-top:8px; display:inline-flex; align-items:center; gap:8px;">
+            ↓ Get Started — Follow the Steps
+        </a>
+
         <!-- Feature Pills -->
         <div class="hero-tags">
             <span class="hero-tag"><span class="icon">🗺️</span> Choropleth Map</span>
@@ -51,7 +57,7 @@
         </div>
 
         <!-- Step Cards -->
-        <div class="action-steps">
+        <div class="action-steps" id="action-steps">
 
             <!-- Step 1 -->
             <div class="step-card" id="card-1">
@@ -247,6 +253,9 @@
             }
         }
     </script>
+
+    <!-- Back to Top -->
+    <a href="#home-top" class="back-to-top" id="back-to-top" aria-label="Back to top">↑ Back to Top</a>
 
 </body>
 

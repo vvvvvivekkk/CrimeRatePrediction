@@ -116,5 +116,6 @@
     │   └── dashboard.html       # Analytics dashboard
     │
     ├── requirements.txt
-    └── README.md
+    ├── README.md
+    └── DATA_DOCUMENTATION.md    # Guide to data variables & ML approach
     ```
