@@ -16,7 +16,7 @@ const State = {
     historicalData: [],
     predictedData: [],
     allStates: [],
-    selectedStates: [],        // [] = All States
+    selectedStates: [],
     startYear: null,
     endYear: null,
     leafletMap: null,
@@ -25,9 +25,11 @@ const State = {
     barChart: null,
     riskChart: null,
     featureChart: null,
+    growthChart: null,
     tableData: [],
     tableSortCol: 1,
     tableSortAsc: true,
+    featureImportance: null,
 };
 
 /* ─── Colours ───────────────────────────────────────────────── */
@@ -422,6 +424,36 @@ function buildFeatureChart(historicalData, selectedState) {
     const ctx = document.getElementById('featureChart').getContext('2d');
     if (State.featureChart) State.featureChart.destroy();
 
+    if (State.featureImportance && typeof State.featureImportance === 'object') {
+        const entries = Object.entries(State.featureImportance).sort((a, b) => b[1] - a[1]);
+        const labels = entries.map(([k]) => k.replace(/_/g, ' '));
+        const values = entries.map(([, v]) => Math.min(100, Number(v) * 100));
+        State.featureChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels,
+                datasets: [{
+                    label: 'Importance',
+                    data: values,
+                    backgroundColor: PALETTE.slice(0, labels.length).map(c => c + 'cc'),
+                    borderColor: PALETTE.slice(0, labels.length),
+                    borderWidth: 1,
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                ...chartBase().options,
+                indexAxis: 'y',
+                plugins: { ...chartBase().options.plugins, legend: { display: false } },
+                scales: {
+                    x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#475569', max: 100 } },
+                    y: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 10 } } }
+                }
+            }
+        });
+        return;
+    }
+
     let data = historicalData;
     if (selectedState && selectedState !== 'All') {
         data = historicalData.filter(d => d.state_name === selectedState);
@@ -456,6 +488,61 @@ function buildFeatureChart(historicalData, selectedState) {
                     ticks: { color: '#475569', backdropColor: 'transparent', stepSize: 25 },
                     min: 0, max: 100
                 }
+            }
+        }
+    });
+}
+
+function buildGrowthChart(historicalData) {
+    const ctx = document.getElementById('growthChart');
+    if (!ctx) return;
+    if (State.growthChart) State.growthChart.destroy();
+    if (!historicalData.length) return;
+
+    const byState = {};
+    historicalData.forEach(d => {
+        if (!byState[d.state_name]) byState[d.state_name] = [];
+        byState[d.state_name].push({ year: d.year, rate: d.crime_rate_per_100k });
+    });
+    const growthList = [];
+    Object.entries(byState).forEach(([state, points]) => {
+        points.sort((a, b) => a.year - b.year);
+        const first = points[0];
+        const last = points[points.length - 1];
+        if (first && last && first.year < last.year && first.rate > 0) {
+            const pct = ((last.rate - first.rate) / first.rate) * 100;
+            growthList.push({ state, pct, years: last.year - first.year });
+        }
+    });
+    growthList.sort((a, b) => b.pct - a.pct);
+    const topGrowth = growthList.slice(0, 10);
+    const labels = topGrowth.map(x => x.state);
+    const values = topGrowth.map(x => x.pct);
+    const colors = values.map(v => v > 0 ? COLORS.red : COLORS.green);
+
+    State.growthChart = new Chart(ctx.getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [{
+                label: '10-Year Growth %',
+                data: values,
+                backgroundColor: colors.map(c => c + 'cc'),
+                borderColor: colors,
+                borderWidth: 1,
+                borderRadius: 4
+            }]
+        },
+        options: {
+            ...chartBase().options,
+            indexAxis: 'y',
+            plugins: { ...chartBase().options.plugins, legend: { display: false } },
+            scales: {
+                x: {
+                    grid: { color: 'rgba(255,255,255,0.04)' },
+                    ticks: { color: '#475569', callback: v => v + '%' }
+                },
+                y: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 10 } } }
             }
         }
     });
@@ -573,50 +660,56 @@ function updateTable(predictedData) {
    ════════════════════════════════════════════════════════════════ */
 function refreshAllCharts() {
     const { historicalData, predictedData } = State;
-    if (!predictedData.length) return;
-
-    // Determine display label
     const sel = State.selectedStates;
     const label = sel.length === 0 ? 'India (All States)' :
         sel.length === 1 ? sel[0] : `${sel.length} States`;
 
-    // ── Trend chart ───────────────────────────────────────────
     const histByYear = {}, predByYear = {};
     historicalData.forEach(d => { (histByYear[d.year] = histByYear[d.year] || []).push(d.crime_rate_per_100k); });
-    predictedData.forEach(d => { (predByYear[d.year] = predByYear[d.year] || []).push(d.predicted_crime_rate); });
-
+    if (predictedData.length) {
+        predictedData.forEach(d => { (predByYear[d.year] = predByYear[d.year] || []).push(d.predicted_crime_rate); });
+    }
     const avg = arr => arr.reduce((a, b) => a + b, 0) / arr.length;
     const hYears = Object.keys(histByYear).map(Number).sort((a, b) => a - b);
     const pYears = Object.keys(predByYear).map(Number).sort((a, b) => a - b);
     const allYears = [...new Set([...hYears, ...pYears])].sort((a, b) => a - b);
-
     const hSeries = allYears.map(y => histByYear[y] ? +avg(histByYear[y]).toFixed(2) : null);
     const pSeries = allYears.map(y => predByYear[y] ? +avg(predByYear[y]).toFixed(2) : null);
     buildTrendChart(allYears, hSeries, pSeries, label);
 
-    // ── Bar chart: Top 10 ──────────────────────────────────────
-    const maxPredYear = Math.max(...predictedData.map(d => d.year));
-    const latest = predictedData.filter(d => d.year === maxPredYear);
-    const stateAvg = {};
-    latest.forEach(d => (stateAvg[d.state_name] = stateAvg[d.state_name] || []).push(d.predicted_crime_rate));
-    const ranked = Object.entries(stateAvg)
-        .map(([s, vals]) => ({ state: s, avg: +avg(vals).toFixed(2) }))
-        .sort((a, b) => b.avg - a.avg).slice(0, 10);
-    buildBarChart(ranked.map(r => r.state), ranked.map(r => r.avg));
-
-    // ── Doughnut ───────────────────────────────────────────────
-    const high = latest.filter(d => d.crime_level === 'High').length;
-    const med = latest.filter(d => d.crime_level === 'Medium').length;
-    const low = latest.filter(d => d.crime_level === 'Low').length;
-    buildRiskChart(high, med, low);
-
-    // ── Radar ──────────────────────────────────────────────────
+    if (predictedData.length) {
+        const maxPredYear = Math.max(...predictedData.map(d => d.year));
+        const latest = predictedData.filter(d => d.year === maxPredYear);
+        const stateAvg = {};
+        latest.forEach(d => (stateAvg[d.state_name] = stateAvg[d.state_name] || []).push(d.predicted_crime_rate));
+        const ranked = Object.entries(stateAvg)
+            .map(([s, vals]) => ({ state: s, avg: +avg(vals).toFixed(2) }))
+            .sort((a, b) => b.avg - a.avg).slice(0, 5);
+        buildBarChart(ranked.map(r => r.state), ranked.map(r => r.avg));
+        const high = latest.filter(d => d.crime_level === 'High').length;
+        const med = latest.filter(d => d.crime_level === 'Medium').length;
+        const low = latest.filter(d => d.crime_level === 'Low').length;
+        buildRiskChart(high, med, low);
+        updateKPIs(predictedData);
+        updateMapLayer(latest);
+        updateTable(predictedData);
+    } else {
+        buildBarChart([], []);
+        buildRiskChart(0, 0, 0);
+        updateMapLayer([]);
+        updateTable([]);
+    }
     buildFeatureChart(historicalData, sel.length === 1 ? sel[0] : null);
+    buildGrowthChart(historicalData);
+    updateExportLinks();
+}
 
-    // ── KPIs + Map + Table ─────────────────────────────────────
-    updateKPIs(predictedData);
-    updateMapLayer(latest);
-    updateTable(predictedData);
+function updateExportLinks() {
+    const qs = buildFilterParams().toString();
+    const histLink = document.getElementById('export-csv-btn');
+    const predLink = document.getElementById('export-predictions-csv-btn');
+    if (histLink) histLink.setAttribute('href', qs ? `/export-csv?${qs}` : '/export-csv');
+    if (predLink) predLink.setAttribute('href', qs ? `/export-predictions-csv?${qs}` : '/export-predictions-csv');
 }
 
 /* ════════════════════════════════════════════════════════════════
@@ -658,6 +751,15 @@ async function loadStates() {
     } catch { return []; }
 }
 
+async function loadFeatureImportance() {
+    try {
+        const res = await fetch('/api/feature-importance');
+        if (!res.ok) return;
+        const data = await res.json();
+        State.featureImportance = data.feature_importance || null;
+    } catch (_) { State.featureImportance = null; }
+}
+
 /* ════════════════════════════════════════════════════════════════
    APPLY FILTERS
    ════════════════════════════════════════════════════════════════ */
@@ -669,8 +771,8 @@ async function applyFilters() {
             loadHistoricalData(params),
             loadPredictedData(params),
         ]);
+        refreshAllCharts();
         if (hist.length || pred.length) {
-            refreshAllCharts();
             showToast(`Filters applied (${hist.length} hist · ${pred.length} pred records)`, 'info');
         } else {
             showToast('No data matches the selected filters.', 'warning');
@@ -738,8 +840,8 @@ async function init() {
     initMap();
     setupMultiSelectUI();
     setupYearFilter();
+    await loadFeatureImportance();
 
-    // Load available states for multi-select
     const states = await loadStates();
     if (states.length) initMultiSelect(states);
 

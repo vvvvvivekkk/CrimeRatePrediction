@@ -12,7 +12,7 @@
     | 🤖 ML Training | Linear Regression, Random Forest, XGBoost — best model (by R²) saved as `model.pkl` |
     | 🔮 Forecasting | 5- or 10-year crime rate predictions per state |
     | 🗺️ Choropleth Map | Leaflet.js interactive India state map, colour-coded by risk level |
-    | 📊 Charts | Trend line, Top-10 bar, Risk doughnut, Feature radar (Chart.js) |
+    | 📊 Charts | Trend line (historical + dashed forecast), Top-5 bar, Risk doughnut, Feature importance, Crime growth % (Chart.js) |
     | 📄 PDF Reports | Per-state report with historical summary and forecast table |
     | 📥 CSV Exports | Download historical or predicted data as CSV |
 
@@ -66,7 +66,7 @@
     |--------|----------|-------------|
     | `GET` | `/` | Landing page |
     | `GET` | `/dashboard` | Dashboard page |
-    | `GET` | `/generate-data` | Generate synthetic dataset → SQLite |
+    | `GET` | `/generate-data` | Generate synthetic dataset (29 states × 15 years) → SQLite |
     | `GET` | `/train` | Train 3 ML models, save best as `model.pkl` |
     | `GET` | `/predict?state=&years=` | Run forecast (all states if `state` omitted) |
     | `GET` | `/export-csv` | Download historical data as CSV |
@@ -74,6 +74,7 @@
     | `GET` | `/report/{state}` | Download PDF report for a state |
     | `GET` | `/api/data/historical` | JSON — all historical records |
     | `GET` | `/api/data/predicted` | JSON — all predicted records |
+    | `GET` | `/api/feature-importance` | JSON — feature importance from trained model (RF/XGB) |
     | `GET` | `/health` | JSON — DB record counts + model status |
     | `GET` | `/docs` | FastAPI interactive docs (Swagger UI) |
 

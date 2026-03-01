@@ -31,7 +31,7 @@
         <div class="nav-links">
             <a href="/" class="nav-item">← Home</a>
             <a href="/export-csv" class="btn-outline" id="export-csv-btn" target="_blank">⬇ Historical CSV</a>
-            <a href="/export-predictions-csv" class="btn-outline" target="_blank">⬇ Predictions CSV</a>
+            <a href="/export-predictions-csv" class="btn-outline" id="export-predictions-csv-btn" target="_blank">⬇ Predictions CSV</a>
         </div>
     </nav>
 
@@ -196,7 +196,7 @@
             <!-- ── Row 2: Bar + Doughnut + Radar ── -->
             <div class="charts-row three-col">
                 <div class="chart-card">
-                    <div class="chart-title"><span class="icon">🏆</span> Top 10 High-Risk States</div>
+                    <div class="chart-title"><span class="icon">🏆</span> Top 5 High-Risk States</div>
                     <canvas id="barChart" height="260"></canvas>
                 </div>
                 <div class="chart-card">
@@ -204,8 +204,16 @@
                     <canvas id="riskChart" height="260"></canvas>
                 </div>
                 <div class="chart-card">
-                    <div class="chart-title"><span class="icon">📐</span> Socioeconomic Correlation</div>
+                    <div class="chart-title"><span class="icon">📐</span> Feature Importance</div>
                     <canvas id="featureChart" height="260"></canvas>
+                </div>
+            </div>
+
+            <!-- Row: Crime Growth % (10-year) -->
+            <div class="charts-row two-col">
+                <div class="chart-card">
+                    <div class="chart-title"><span class="icon">📈</span> Crime Growth % (10-Year)</div>
+                    <canvas id="growthChart" height="260"></canvas>
                 </div>
             </div>
 

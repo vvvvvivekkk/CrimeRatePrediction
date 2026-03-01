@@ -1,0 +1,7 @@
+{
+  "best_model": "Linear Regression",
+  "r2": 0.9804,
+  "rmse": 8.9588,
+  "mae": 6.9968,
+  "feature_importance": null
+}

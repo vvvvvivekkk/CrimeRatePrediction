@@ -6,20 +6,33 @@ and saves best model (by R²) as model.pkl along with scaler and feature list.
 """
 from __future__ import annotations
 
+import json
 import joblib
 import numpy as np
 import pandas as pd
+import os
+
 from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import TimeSeriesSplit
 from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
 from xgboost import XGBRegressor
 from sqlalchemy.orm import Session
-import os
-
 from app.preprocessing import load_data, preprocess_data
 
 MODEL_PATH = "model.pkl"
+METRICS_PATH = "model_metrics.json"
+
+
+def get_feature_importance() -> dict | None:
+    """Load saved model and return feature importance dict if available (RF/XGB)."""
+    if not os.path.exists(MODEL_PATH):
+        return None
+    try:
+        saved = joblib.load(MODEL_PATH)
+        return saved.get("feature_importance")
+    except Exception:
+        return None
 
 
 def _cross_val_score_ts(model, X: pd.DataFrame, y: pd.Series, n_splits: int = 4) -> float:
@@ -107,14 +120,37 @@ def train_and_evaluate(db: Session) -> dict:
     if best_model is None:
         return {"error": "All models failed to train."}
 
+    # Persist feature importance when available (RF, XGB; not LR)
+    feature_importance = None
+    if hasattr(best_model, "feature_importances_"):
+        imp = best_model.feature_importances_
+        feature_importance = dict(zip(features, [round(float(x), 6) for x in imp]))
+
     joblib.dump(
-        {"model": best_model, "scaler": scaler, "features": features},
+        {
+            "model": best_model,
+            "scaler": scaler,
+            "features": features,
+            "feature_importance": feature_importance,
+        },
         MODEL_PATH,
     )
 
+    # Save metrics for PDF report
+    best_met = results.get(best_name, {})
+    with open(METRICS_PATH, "w") as f:
+        json.dump({
+            "best_model": best_name,
+            "r2": best_met.get("R2_Score"),
+            "rmse": best_met.get("RMSE"),
+            "mae": best_met.get("MAE"),
+            "feature_importance": feature_importance,
+        }, f, indent=2)
+
     return {
-        "status":     "success",
+        "status": "success",
         "best_model": best_name,
-        "metrics":    results,
+        "metrics": results,
         "features_used": features,
+        "feature_importance": feature_importance,
     }

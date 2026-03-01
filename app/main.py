@@ -13,8 +13,9 @@ from sqlalchemy.orm import Session
 
 from app.database import engine, Base, get_db
 from app.models import HistoricalCrimeData, PredictedCrimeData
-from app.real_dataset_loader import load_realistic_data, reset_and_reload
-from app.ml_model import train_and_evaluate, MODEL_PATH
+from app.dataset_generator import generate_synthetic_data
+from app.real_dataset_loader import reset_and_reload
+from app.ml_model import train_and_evaluate, MODEL_PATH, get_feature_importance
 from app.forecasting import forecast_crime_rates
 from app.report_generator import generate_pdf_report
 from app.filtering import filter_historical, filter_predicted, parse_states_param
@@ -69,8 +70,8 @@ async def get_dashboard(request: Request):
 
 @app.get("/generate-data")
 async def api_generate_data(db: Session = Depends(get_db)):
-    """Load NCRB-calibrated realistic data into SQLite."""
-    return load_realistic_data(db)
+    """Generate synthetic historical data (29 states × 15 years) and store in SQLite."""
+    return generate_synthetic_data(db)
 
 
 @app.get("/reset-data")
@@ -183,6 +184,15 @@ async def api_get_states(db: Session = Depends(get_db)):
     """Return sorted list of all states that have historical data."""
     rows = db.query(HistoricalCrimeData.state_name).distinct().order_by(HistoricalCrimeData.state_name).all()
     return [r[0] for r in rows]
+
+
+@app.get("/api/feature-importance")
+async def api_feature_importance():
+    """Return feature importance from the trained model (RF/XGB). None if not available."""
+    imp = get_feature_importance()
+    if imp is None:
+        return {"feature_importance": None, "message": "Model not trained or Linear Regression (no importance)."}
+    return {"feature_importance": imp}
 
 
 # ── CSV exports ────────────────────────────────────────────────────────────────
